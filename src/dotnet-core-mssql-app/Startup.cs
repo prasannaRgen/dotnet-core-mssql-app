@@ -7,7 +7,9 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using dotnet_core_mssql_app.Contexts;
+using dotnet_core_mssql_app.Repository;
 
 namespace dotnet_core_mssql_app
 {
@@ -20,6 +22,12 @@ namespace dotnet_core_mssql_app
                 .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
                 .AddEnvironmentVariables();
+
+            if (env.IsDevelopment())
+            {
+                // This will push telemetry data through Application Insights pipeline faster, allowing you to view results immediately.
+                builder.AddApplicationInsightsSettings(developerMode: true);
+            }
             Configuration = builder.Build();
         }
 
@@ -29,17 +37,25 @@ namespace dotnet_core_mssql_app
         public void ConfigureServices(IServiceCollection services)
         {
             // Add framework services.
+            services.AddApplicationInsightsTelemetry(Configuration);
+
+            services.AddDbContext<MyContext>(
+                options => options.UseSqlServer(Classes.ConnectionSetting.CONNECTION_STRING));
+
+            services.AddSingleton<IPersonRepository, PersonRepository>();
+
             services.AddMvc();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
-
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
 
-            /*if (env.IsDevelopment())
+            app.UseApplicationInsightsRequestTelemetry();
+
+            if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
                 app.UseBrowserLink();
@@ -47,10 +63,9 @@ namespace dotnet_core_mssql_app
             else
             {
                 app.UseExceptionHandler("/Home/Error");
-            }*/
+            }
 
-            app.UseDeveloperExceptionPage();
-            app.UseBrowserLink();
+            app.UseApplicationInsightsExceptionTelemetry();
 
             app.UseStaticFiles();
 
